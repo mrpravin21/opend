@@ -11,7 +11,8 @@
     "prebuild": "npm run copy:types",
     "start": "webpack serve --mode development --env development",
     "prestart": "npm run copy:types",
-    "copy:types": "rsync -avr .dfx/$(echo ${DFX_NETWORK:-'**'})/canisters/** --exclude='assets/' --exclude='idl/' --exclude='*.wasm' --delete src/declarations"
+    "copy:types": "rsync -avr .dfx/$(echo ${DFX_NETWORK:-'**'})/canisters/** --exclude='assets/' --exclude='idl/' --exclude='*.wasm' --delete src/declarations && npm run fix:declarations",
+    "fix:declarations": "cp src/declarations/opend/service.did.js src/declarations/opend/opend.did.js 2>/dev/null || true && cp src/declarations/opend/service.did.d.ts src/declarations/opend/opend.did.d.ts 2>/dev/null || true && cp src/declarations/token/service.did.js src/declarations/token/token.did.js 2>/dev/null || true && cp src/declarations/token/service.did.d.ts src/declarations/token/token.did.d.ts 2>/dev/null || true && cp src/declarations/nft/service.did.js src/declarations/nft/nft.did.js 2>/dev/null || true && cp src/declarations/nft/service.did.d.ts src/declarations/nft/nft.did.d.ts 2>/dev/null || true"
   },
   "devDependencies": {
     "@dfinity/agent": "0.10.3",

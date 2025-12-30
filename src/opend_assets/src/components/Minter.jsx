@@ -1,25 +1,57 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useForm } from "react-hook-form";
 import { opend } from "../../../declarations/opend";
 import { Principal } from "@dfinity/principal";
 import Item from "./Item";
+import { AuthContext } from "../index";
+import { getAuthedActors } from "../icpAuth";
+import { NFTRefreshContext } from "./Header";
 
 function Minter() {
+  const { isAuthenticated, principal } = useContext(AuthContext);
+  const { refreshNFTs } = useContext(NFTRefreshContext);
   const { register, handleSubmit } = useForm();
   const [nftPrincipal, setNFTPrincipal] = useState("");
   const [loaderHidden, setLoaderHidden] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function onSubmit(data) {
-    setLoaderHidden(false);
-    const name = data.name;
-    const image = data.image[0];
-    const imageArray = await image.arrayBuffer();
-    const imageByteData = [...new Uint8Array(imageArray)];
+    if (!isAuthenticated || !principal) {
+      setErrorMessage("Please login to mint NFTs");
+      return;
+    }
 
-    const newNFTID = await opend.mint(imageByteData, name);
-    console.log(newNFTID.toText());
-    setNFTPrincipal(newNFTID);
-    setLoaderHidden(true);
+    setLoaderHidden(false);
+    setErrorMessage("");
+
+    try {
+      const name = data.name;
+      const image = data.image[0];
+      const imageArray = await image.arrayBuffer();
+      const imageByteData = [...new Uint8Array(imageArray)];
+
+      // Use authenticated actors for minting
+      const { opend: authedOpend } = await getAuthedActors();
+      
+      // Call mint - it uses msg.caller to determine the owner
+      const newNFTID = await authedOpend.mint(imageByteData, name);
+      console.log("Minted NFT ID:", newNFTID.toText());
+      console.log("Expected owner should be:", principal?.toText());
+      
+      setNFTPrincipal(newNFTID);
+      setLoaderHidden(true);
+      
+      // Refresh NFT list after minting
+      if (refreshNFTs) {
+        setTimeout(() => {
+          refreshNFTs();
+        }, 2000); // Wait 2 seconds for the canister to update
+      }
+    } catch (error) {
+      console.error("Error minting NFT:", error);
+      setErrorMessage("Failed to mint NFT. Please try again: " + error.message);
+      setLoaderHidden(true);
+    }
   }
 
   if (nftPrincipal == "") {
@@ -34,6 +66,16 @@ function Minter() {
         <h3 className="makeStyles-title-99 Typography-h3 form-Typography-gutterBottom">
           Create NFT
         </h3>
+        {!isAuthenticated && (
+          <div style={{ color: "red", marginBottom: "10px" }}>
+            Please login to mint NFTs
+          </div>
+        )}
+        {errorMessage && (
+          <div style={{ color: "red", marginBottom: "10px" }}>
+            {errorMessage}
+          </div>
+        )}
         <h6 className="form-Typography-root makeStyles-subhead-102 form-Typography-subtitle1 form-Typography-gutterBottom">
           Upload Image
         </h6>

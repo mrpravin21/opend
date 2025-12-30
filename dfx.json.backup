@@ -1,11 +1,5 @@
 {
   "canisters": {
-    "internet_identity": {
-      "type": "custom",
-      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
-      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
-      "init_arg": "(opt record { captcha_config = opt record { max_unsolved_captchas= 50:nat64; captcha_trigger = variant {Static = variant {CaptchaDisabled}}}})"
-    },
     "opend": {
       "main": "src/opend/main.mo",
       "type": "motoko"
@@ -26,6 +20,7 @@
         "entrypoint": "src/opend_assets/src/index.html"
       },
       "source": [
+        "src/opend_assets/assets",
         "dist/opend_assets/"
       ],
       "type": "assets"
@@ -37,7 +32,7 @@
       "packtool": ""
     }
   },
-  "dfx": "0.30.1",
+  "dfx": "0.9.3",
   "networks": {
     "local": {
       "bind": "127.0.0.1:8000",

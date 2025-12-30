@@ -17,7 +17,7 @@ function Gallery(props) {
 
   useEffect(() => {
     fetchNFTs();
-  }, []);
+  }, [props.ids]);
 
   return (
     <div className="gallery-view">

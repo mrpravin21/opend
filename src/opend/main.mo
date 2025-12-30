@@ -7,22 +7,25 @@ import List "mo:base/List";
 import Iter "mo:base/Iter";
 
 
-actor OpenD {
+persistent actor OpenD {
 
     private type Listing = {
       itemOwner: Principal;
       itemPrice: Nat;
     };
 
-    var mapOfNFTs = HashMap.HashMap<Principal, NFTActorClass.NFT>(1, Principal.equal, Principal.hash);
-    var mapOfOwners = HashMap.HashMap<Principal, List.List<Principal>>(1, Principal.equal, Principal.hash);
-    var mapOfListings = HashMap.HashMap<Principal, Listing>(1, Principal.equal, Principal.hash);
+    private transient var mapOfNFTs = HashMap.HashMap<Principal, NFTActorClass.NFT>(1, Principal.equal, Principal.hash);
+    private transient var mapOfOwners = HashMap.HashMap<Principal, List.List<Principal>>(1, Principal.equal, Principal.hash);
+    private transient var mapOfListings = HashMap.HashMap<Principal, Listing>(1, Principal.equal, Principal.hash);
 
     public shared(msg) func mint(imgData: [Nat8], name: Text) : async Principal {
       let owner : Principal = msg.caller;
 
       Debug.print(debug_show(Cycles.balance()));
-      Cycles.add(100_500_000_000);
+      // Add cycles for creating the new NFT canister 
+      // Installation fee: 500 billion for 13-node subnets, 1.3 trillion for 34-node subnets
+      // Using 2 trillion cycles to ensure enough cycles after installation fee is deducted and for initial operations
+      Cycles.add(2_000_000_000_000);
       let newNFT = await NFTActorClass.NFT(name, owner, imgData);
       Debug.print(debug_show(Cycles.balance()));
 
@@ -83,6 +86,10 @@ actor OpenD {
       return Principal.fromActor(OpenD);
     };
 
+    public query func getCyclesBalance() : async Nat {
+      return Cycles.balance();
+    };
+
     public query func isListed(id: Principal) : async Bool {
       if (mapOfListings.get(id) == null) {
         return false;
@@ -126,6 +133,7 @@ actor OpenD {
         ownedNFTs := List.filter(ownedNFTs, func (listItemId: Principal) : Bool {
           return listItemId != id;
         });
+        mapOfOwners.put(ownerId, ownedNFTs);
 
         addToOwnershipMap(newOwnerId, id);
         return "Success";

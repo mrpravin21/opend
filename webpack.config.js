@@ -29,8 +29,10 @@ function initCanisterEnv() {
 
   return Object.entries(canisterConfig).reduce((prev, current) => {
     const [canisterName, canisterDetails] = current;
-    prev[canisterName.toUpperCase() + "_CANISTER_ID"] =
-      canisterDetails[network];
+    // Set both naming conventions for compatibility
+    const upperName = canisterName.toUpperCase();
+    prev[upperName + "_CANISTER_ID"] = canisterDetails[network];
+    prev["CANISTER_ID_" + upperName] = canisterDetails[network];
     return prev;
   }, {});
 }
@@ -88,11 +90,23 @@ module.exports = {
       template: path.join(__dirname, asset_entry),
       cache: false,
     }),
+    // Copy assets to dist so they're available for both webpack dev server and dfx deployment
+    // dfx.json now only sources dist/opend_assets/ to avoid duplicates
     new CopyPlugin({
       patterns: [
         {
           from: path.join(__dirname, "src", frontendDirectory, "assets"),
-          to: path.join(__dirname, "dist", frontendDirectory),
+          to: path.join(__dirname, "dist", frontendDirectory, "assets"),
+          // Exclude main.css - it needs to be in the root, not in assets folder
+          globOptions: {
+            ignore: ["**/main.css"],
+          },
+        },
+        // Copy main.css to root of dist (where HTML expects it)
+        {
+          from: path.join(__dirname, "src", frontendDirectory, "assets", "main.css"),
+          to: path.join(__dirname, "dist", frontendDirectory, "main.css"),
+          noErrorOnMissing: true, // Don't fail if file doesn't exist
         },
       ],
     }),

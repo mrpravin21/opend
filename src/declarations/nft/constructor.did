@@ -1,0 +1,8 @@
+type NFT = service {
+  getAsset : () -> (blob) query;
+  getCanisterId : () -> (principal) query;
+  getName : () -> (text) query;
+  getOwner : () -> (principal) query;
+  transferOwnership : (principal) -> (text);
+};
+service : (text, principal, blob) -> NFT

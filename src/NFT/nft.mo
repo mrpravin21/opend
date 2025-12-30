@@ -1,11 +1,11 @@
 import Debug "mo:base/Debug";
 import Principal "mo:base/Principal";
 
-actor class NFT (name: Text, owner: Principal, content: [Nat8]) = this {
+persistent actor class NFT (name: Text, owner: Principal, content: [Nat8]) = this {
   
-  private let itemName = name;
-  private var nftOwner = owner;
-  private let imageBytes = content;
+  private transient let itemName = name;
+  private transient var nftOwner = owner;
+  private transient let imageBytes = content;
 
   public query func getName() : async Text{
     return itemName;
