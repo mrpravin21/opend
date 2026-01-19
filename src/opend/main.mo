@@ -21,13 +21,33 @@ persistent actor OpenD {
     public shared(msg) func mint(imgData: [Nat8], name: Text) : async Principal {
       let owner : Principal = msg.caller;
 
-      Debug.print(debug_show(Cycles.balance()));
+      // Minimum cycles required: 2 trillion for NFT creation + 500 billion buffer
+      let requiredCycles : Nat = 2_500_000_000_000;
+      let currentBalance = Cycles.balance();
+      
+      Debug.print(debug_show("Current cycles balance: " # debug_show(currentBalance)));
+      Debug.print(debug_show("Required cycles: " # debug_show(requiredCycles)));
+      
+      if (currentBalance < requiredCycles) {
+        Debug.print("Insufficient cycles for minting. Current: " # debug_show(currentBalance) # ", Required: " # debug_show(requiredCycles));
+        // Return an error by throwing
+        // In Motoko, we use a Result type pattern, but for simplicity, we'll check before adding cycles
+        return Principal.fromText("aaaaa-aa"); // Invalid principal as error indicator
+      };
+
       // Add cycles for creating the new NFT canister 
       // Installation fee: 500 billion for 13-node subnets, 1.3 trillion for 34-node subnets
       // Using 2 trillion cycles to ensure enough cycles after installation fee is deducted and for initial operations
       Cycles.add(2_000_000_000_000);
+      
+      // Check cycles again after adding (they should be available now)
+      if (Cycles.balance() < 2_000_000_000_000) {
+        Debug.print("Cycles not available after add. Balance: " # debug_show(Cycles.balance()));
+        return Principal.fromText("aaaaa-aa"); // Invalid principal as error indicator
+      };
+      
       let newNFT = await NFTActorClass.NFT(name, owner, imgData);
-      Debug.print(debug_show(Cycles.balance()));
+      Debug.print(debug_show("Cycles balance after minting: " # debug_show(Cycles.balance())));
 
       let newNFTPrincipal = await newNFT.getCanisterId();
 
@@ -90,6 +110,17 @@ persistent actor OpenD {
       return Cycles.balance();
     };
 
+    // Check if there are enough cycles to mint a new NFT
+    public query func canMint() : async Bool {
+      let requiredCycles : Nat = 2_500_000_000_000; // 2 trillion for NFT + 500 billion buffer
+      return Cycles.balance() >= requiredCycles;
+    };
+
+    // Get the minimum cycles required for minting
+    public query func getRequiredCyclesForMint() : async Nat {
+      return 2_500_000_000_000; // 2 trillion for NFT + 500 billion buffer
+    };
+
     public query func isListed(id: Principal) : async Bool {
       if (mapOfListings.get(id) == null) {
         return false;
@@ -117,7 +148,7 @@ persistent actor OpenD {
 
     };
 
-    public shared(msg) func completePurchase(id: Principal, ownerId: Principal, newOwnerId: Principal) : async Text {
+    public shared(_msg) func completePurchase(id: Principal, ownerId: Principal, newOwnerId: Principal) : async Text {
       var purchasedNFT : NFTActorClass.NFT = switch (mapOfNFTs.get(id)) {
         case null return "NFT does not exist";
         case (?result) result

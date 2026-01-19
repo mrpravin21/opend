@@ -1,4 +1,5 @@
 service : {
+  canMint: () -> (bool) query;
   completePurchase: (id: principal, ownerId: principal, newOwnerId:
    principal) -> (text);
   getCyclesBalance: () -> (nat) query;
@@ -7,6 +8,7 @@ service : {
   getOpenDCanisterID: () -> (principal) query;
   getOriginalOwner: (id: principal) -> (principal) query;
   getOwnedNFTs: (user: principal) -> (vec principal) query;
+  getRequiredCyclesForMint: () -> (nat) query;
   isListed: (id: principal) -> (bool) query;
   listItem: (id: principal, price: nat) -> (text);
   mint: (imgData: vec nat8, name: text) -> (principal);
