@@ -16,6 +16,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'payOut' : IDL.Func([], [IDL.Text], []),
+    'rewardQuiz' : IDL.Func([IDL.Nat], [IDL.Text], []),
     'transfer' : IDL.Func([IDL.Principal, IDL.Nat], [IDL.Text], []),
     'transferWithDescription' : IDL.Func(
         [IDL.Principal, IDL.Nat, IDL.Text],

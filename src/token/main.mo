@@ -5,6 +5,7 @@ import Iter "mo:base/Iter";
 import List "mo:base/List";
 import Time "mo:base/Time";
 import Array "mo:base/Array";
+import Text "mo:base/Text";
 
 persistent actor Token {
 
@@ -55,8 +56,37 @@ persistent actor Token {
       case null List.nil<Transaction>();
       case (?result) result;
     };
+    // Helper function to check if description starts with a prefix
+    func startsWith(text: Text, prefix: Text): Bool {
+      if (Text.size(text) < Text.size(prefix)) {
+        return false;
+      };
+      // Convert both to arrays and compare first characters
+      let textChars = Iter.toArray(Text.toIter(text));
+      let prefixChars = Iter.toArray(Text.toIter(prefix));
+      if (textChars.size() < prefixChars.size()) {
+        return false;
+      };
+      var matches = true;
+      var i = 0;
+      for (prefixChar in prefixChars.vals()) {
+        if (i >= textChars.size() or textChars[i] != prefixChar) {
+          matches := false;
+        };
+        i += 1;
+      };
+      return matches;
+    };
+    
+    // Check if this is a quiz reward (from owner, description starts with "Quiz reward")
+    let isQuizReward = Principal.equal(from, owner) and 
+                       description != "Tokens claimed from faucet" and
+                       startsWith(description, "Quiz reward");
+    
     let creditDescription = if (Principal.equal(from, owner) and description == "Tokens claimed from faucet") {
       description
+    } else if (isQuizReward) {
+      "Tokens earned from quiz"
     } else {
       "Amount credited for NFT sold to " # Principal.toText(from)
     };
@@ -119,6 +149,26 @@ persistent actor Token {
       }
     } else {
       return "Already Claimed"
+    }
+  };
+
+  // Reward function for quiz points - transfers tokens from owner's balance
+  public shared(msg) func rewardQuiz(amount: Nat) : async Text {
+    Debug.print(debug_show(msg.caller));
+    let ownerBalance = await balanceOf(owner);
+    if (ownerBalance >= amount) {
+      let newOwnerBalance : Nat = ownerBalance - amount;
+      balances.put(owner, newOwnerBalance);
+      
+      let toBalance = await balanceOf(msg.caller);
+      let newToBalance = toBalance + amount;
+      balances.put(msg.caller, newToBalance);
+      
+      addTransaction(owner, msg.caller, amount, "Quiz reward - " # debug_show(amount) # " points claimed");
+      
+      return "Success";
+    } else {
+      return "Insufficient Funds"
     }
   };
 

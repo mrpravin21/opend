@@ -15,6 +15,7 @@ export interface _SERVICE {
   'getSymbol' : ActorMethod<[], string>,
   'getTransactions' : ActorMethod<[Principal], Array<Transaction>>,
   'payOut' : ActorMethod<[], string>,
+  'rewardQuiz' : ActorMethod<[bigint], string>,
   'transfer' : ActorMethod<[Principal, bigint], string>,
   'transferWithDescription' : ActorMethod<[Principal, bigint, string], string>,
 }

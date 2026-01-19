@@ -1,0 +1,15 @@
+// Version: 1.0.0
+type Transaction__840799351 =
+  {
+    amount : Nat;
+    description : Text;
+    from : Principal;
+    id : Nat;
+    timestamp : Int;
+    to : Principal
+  };
+actor {
+  stable var balanceEntries : [(Principal, Nat)];
+  stable var nextTransactionId : Nat;
+  stable var transactionEntries : [(Principal, [Transaction__840799351])]
+};

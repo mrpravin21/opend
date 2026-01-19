@@ -112,6 +112,7 @@ module.exports = {
     }),
     new webpack.EnvironmentPlugin({
       NODE_ENV: "development",
+      QUIZ_API_URL: "http://localhost:3000", // Default quiz API URL
       ...canisterEnvVariables,
     }),
     new webpack.ProvidePlugin({

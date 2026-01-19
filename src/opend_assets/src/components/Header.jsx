@@ -7,6 +7,7 @@ import Gallery from "./Gallery";
 import { opend } from "../../../declarations/opend";
 import { AuthContext } from "../index";
 import TokenWallet from "./TokenWallet";
+import QuizRewards from "./QuizRewards";
 import { getAuthedActors } from "../icpAuth";
 
 // Create a context to share refresh function
@@ -122,6 +123,9 @@ function Header() {
             <button className="ButtonBase-root Button-root Button-text header-navButtons-3">
                <Link to="/wallet">Wallet</Link>
             </button>
+            <button className="ButtonBase-root Button-root Button-text header-navButtons-3">
+               <Link to="/quiz">Quiz</Link>
+            </button>
             {loading ? (
               <button className="ButtonBase-root Button-root Button-text header-navButtons-3" disabled>
                 Loading...
@@ -163,6 +167,9 @@ function Header() {
         <Route path="/collection">{userOwnedGallery}</Route>
         <Route path="/wallet">
           <TokenWallet />
+        </Route>
+        <Route path="/quiz">
+          <QuizRewards />
         </Route>
 
       </Switch>

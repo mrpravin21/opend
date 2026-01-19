@@ -12,6 +12,7 @@ service : {
   getSymbol: () -> (text) query;
   getTransactions: (user: principal) -> (vec Transaction) query;
   payOut: () -> (text);
+  rewardQuiz: (amount: nat) -> (text);
   transfer: (to: principal, amount: nat) -> (text);
   transferWithDescription: (to: principal, amount: nat, description: 
    text) -> (text);
