@@ -125,11 +125,13 @@ function Minter() {
         imageData: imageBase64,
         imageHash: checkResult?.imageHash || null,
         phash: checkResult?.phash || null,
-        embedding: null, // Will be generated server-side if needed
+        embedding: checkResult?.embedding || null, // Pass embedding from originality check
         originalityScore: checkResult?.originalityScore ? parseFloat(checkResult.originalityScore) : null,
         similarityScore: checkResult?.similarityScore ? parseFloat(checkResult.similarityScore) : null,
         mostSimilarNftPrincipalId: checkResult?.mostSimilarNft?.nft_principal_id || null,
       };
+
+      console.log("Storing metadata with phash length:", checkResult?.phash?.length, "embedding:", checkResult?.embedding ? "present" : "null");
 
       const response = await fetch(`${QUIZ_API_URL}/api/nft/store-metadata`, {
         method: 'POST',
@@ -188,11 +190,18 @@ function Minter() {
           // Duplicate or derivative detected - block minting
           console.log("Duplicate detected - blocking mint");
           setLoaderHidden(true);
+
           const existingNftInfo = originalityResult.existingNft
             ? ` Existing NFT: "${originalityResult.existingNft.name || 'Unknown'}"`
             : '';
+
+          const originalityInfo =
+            originalityResult.originalityScore || originalityResult.similarityScore
+              ? ` Originality: ${originalityResult.originalityScore || 'N/A'}%, Similarity: ${originalityResult.similarityScore || 'N/A'}%.`
+              : '';
+
           setErrorMessage(
-            `Cannot mint NFT: ${originalityResult.message}.${existingNftInfo} ` +
+            `Cannot mint NFT: ${originalityResult.message}.${existingNftInfo}${originalityInfo} ` +
             `Minting has been blocked to prevent duplicates.`
           );
           return; // Stop minting process
