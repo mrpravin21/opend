@@ -7,6 +7,11 @@ import { AuthContext } from "../index";
 import { getAuthedActors } from "../icpAuth";
 import { NFTRefreshContext } from "./Header";
 
+// Quiz API URL - same as used in QuizRewards
+const QUIZ_API_URL = typeof process !== 'undefined' && process.env?.QUIZ_API_URL 
+  ? process.env.QUIZ_API_URL 
+  : "http://localhost:3000";
+
 function Minter() {
   const { isAuthenticated, principal } = useContext(AuthContext);
   const { refreshNFTs } = useContext(NFTRefreshContext);
@@ -15,6 +20,8 @@ function Minter() {
   const [loaderHidden, setLoaderHidden] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [cyclesWarning, setCyclesWarning] = useState("");
+  const [originalityCheckResult, setOriginalityCheckResult] = useState(null);
+  const [originalityChecking, setOriginalityChecking] = useState(false);
 
   async function checkCycles() {
     try {
@@ -50,6 +57,100 @@ function Minter() {
     }
   }
 
+  // Check originality of image before minting (optional, non-blocking)
+  async function checkOriginality(imageFile, name) {
+    if (!isAuthenticated || !principal) {
+      return null;
+    }
+
+    try {
+      setOriginalityChecking(true);
+      setOriginalityCheckResult(null);
+
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      formData.append('principalId', principal.toText());
+      formData.append('name', name);
+
+      console.log('Calling originality check API:', `${QUIZ_API_URL}/api/nft/check-originality`);
+      
+      const response = await fetch(`${QUIZ_API_URL}/api/nft/check-originality`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Originality check API error:', response.status, errorText);
+        throw new Error(`Originality check failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Originality check result:', result);
+      setOriginalityCheckResult(result);
+      return result;
+    } catch (error) {
+      console.error("Error checking originality:", error);
+      // Don't block minting if originality check fails - just log it
+      setOriginalityCheckResult({
+        approved: null,
+        reason: 'error',
+        message: 'Originality check unavailable. Proceeding with mint.',
+        error: error.message,
+      });
+      return null;
+    } finally {
+      setOriginalityChecking(false);
+    }
+  }
+
+  // Store NFT metadata after successful minting
+  async function storeNFTMetadata(nftPrincipalId, name, imageArrayBuffer, checkResult) {
+    if (!isAuthenticated || !principal) {
+      return;
+    }
+
+    try {
+      // Convert Uint8Array to base64 for storage (without using Buffer)
+      const uint8Array = new Uint8Array(imageArrayBuffer);
+      const binaryString = Array.from(uint8Array)
+        .map(byte => String.fromCharCode(byte))
+        .join('');
+      const imageBase64 = btoa(binaryString);
+
+      const metadata = {
+        nftPrincipalId: nftPrincipalId,
+        mintedByPrincipal: principal.toText(),
+        name: name,
+        imageData: imageBase64,
+        imageHash: checkResult?.imageHash || null,
+        phash: checkResult?.phash || null,
+        embedding: null, // Will be generated server-side if needed
+        originalityScore: checkResult?.originalityScore ? parseFloat(checkResult.originalityScore) : null,
+        similarityScore: checkResult?.similarityScore ? parseFloat(checkResult.similarityScore) : null,
+        mostSimilarNftPrincipalId: checkResult?.mostSimilarNft?.nft_principal_id || null,
+      };
+
+      const response = await fetch(`${QUIZ_API_URL}/api/nft/store-metadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(metadata),
+      });
+
+      if (!response.ok) {
+        console.warn("Failed to store NFT metadata:", response.statusText);
+        // Don't fail the mint if metadata storage fails
+      } else {
+        console.log("NFT metadata stored successfully");
+      }
+    } catch (error) {
+      console.error("Error storing NFT metadata:", error);
+      // Don't fail the mint if metadata storage fails
+    }
+  }
+
   async function onSubmit(data) {
     if (!isAuthenticated || !principal) {
       setErrorMessage("Please login to mint NFTs");
@@ -59,6 +160,7 @@ function Minter() {
     setLoaderHidden(false);
     setErrorMessage("");
     setCyclesWarning("");
+    setOriginalityCheckResult(null);
 
     try {
       // Check cycles before proceeding
@@ -74,6 +176,40 @@ function Minter() {
       const imageArray = await image.arrayBuffer();
       const imageByteData = [...new Uint8Array(imageArray)];
 
+      // Check originality before minting (blocking if duplicate found)
+      let originalityResult = null;
+      try {
+        originalityResult = await checkOriginality(image, name);
+        
+        console.log("Originality check completed:", originalityResult);
+        
+        // If originality check explicitly rejected (duplicate found), block minting
+        if (originalityResult && originalityResult.approved === false) {
+          // Duplicate or derivative detected - block minting
+          console.log("Duplicate detected - blocking mint");
+          setLoaderHidden(true);
+          const existingNftInfo = originalityResult.existingNft
+            ? ` Existing NFT: "${originalityResult.existingNft.name || 'Unknown'}"`
+            : '';
+          setErrorMessage(
+            `Cannot mint NFT: ${originalityResult.message}.${existingNftInfo} ` +
+            `Minting has been blocked to prevent duplicates.`
+          );
+          return; // Stop minting process
+        }
+        
+        // If originality check passed or was null (API error), proceed
+        if (originalityResult && originalityResult.approved === true) {
+          console.log("Originality check passed - proceeding with mint");
+        } else if (!originalityResult) {
+          console.warn("Originality check returned null - proceeding anyway (API may be down)");
+        }
+      } catch (error) {
+        console.warn("Originality check unavailable, proceeding with mint:", error);
+        // Continue with mint only if originality check fails due to API error
+        // This maintains backward compatibility if the API service is down
+      }
+
       // Use authenticated actors for minting
       const { opend: authedOpend } = await getAuthedActors();
       
@@ -87,6 +223,13 @@ function Minter() {
       
       console.log("Minted NFT ID:", newNFTID.toText());
       console.log("Expected owner should be:", principal?.toText());
+      
+      // Store NFT metadata in database (non-blocking but important for duplicate detection)
+      storeNFTMetadata(newNFTID.toText(), name, imageByteData, originalityResult).catch(err => {
+        console.error("Metadata storage failed - this will affect duplicate detection:", err);
+        // Show warning but don't block
+        alert("Warning: Failed to store NFT metadata. Duplicate detection may not work for this NFT.");
+      });
       
       setNFTPrincipal(newNFTID);
       setLoaderHidden(true);
@@ -148,6 +291,71 @@ function Minter() {
             fontSize: "14px"
           }}>
             {cyclesWarning}
+          </div>
+        )}
+        {originalityChecking && (
+          <div style={{ 
+            color: "blue", 
+            marginBottom: "10px",
+            padding: "10px",
+            backgroundColor: "#d1ecf1",
+            borderRadius: "4px",
+            fontSize: "14px"
+          }}>
+            🔍 Checking image originality...
+          </div>
+        )}
+        {originalityCheckResult && originalityCheckResult.approved === false && (
+          <div style={{ 
+            color: "red", 
+            marginBottom: "10px",
+            padding: "10px",
+            backgroundColor: "#f8d7da",
+            borderRadius: "4px",
+            fontSize: "14px",
+            border: "1px solid #dc3545"
+          }}>
+            ❌ Duplicate Detected: {originalityCheckResult.message}
+            {originalityCheckResult.existingNft && (
+              <div style={{ marginTop: "8px", fontSize: "12px", color: "#721c24" }}>
+                <strong>Existing NFT:</strong> "{originalityCheckResult.existingNft.name || 'Unknown'}"
+                {originalityCheckResult.existingNft.nft_principal_id && (
+                  <span> (ID: {originalityCheckResult.existingNft.nft_principal_id.substring(0, 20)}...)</span>
+                )}
+              </div>
+            )}
+            {originalityCheckResult.originalityScore && (
+              <div style={{ marginTop: "5px", fontSize: "12px", color: "#721c24" }}>
+                Originality Score: {originalityCheckResult.originalityScore}%
+              </div>
+            )}
+            <div style={{ marginTop: "8px", fontSize: "12px", fontWeight: "bold", color: "#721c24" }}>
+              ⛔ Minting has been blocked to prevent duplicates.
+            </div>
+          </div>
+        )}
+        {originalityCheckResult && originalityCheckResult.approved === true && (
+          <div style={{ 
+            color: "green", 
+            marginBottom: "10px",
+            padding: "10px",
+            backgroundColor: "#d4edda",
+            borderRadius: "4px",
+            fontSize: "14px"
+          }}>
+            ✅ Image passed originality check (Score: {originalityCheckResult.originalityScore}%)
+          </div>
+        )}
+        {originalityCheckResult && originalityCheckResult.reason === 'error' && (
+          <div style={{ 
+            color: "gray", 
+            marginBottom: "10px",
+            padding: "10px",
+            backgroundColor: "#e9ecef",
+            borderRadius: "4px",
+            fontSize: "14px"
+          }}>
+            ℹ️ {originalityCheckResult.message}
           </div>
         )}
         {errorMessage && (
