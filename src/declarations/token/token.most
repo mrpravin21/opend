@@ -1,5 +1,5 @@
 // Version: 1.0.0
-type Transaction__840799351 =
+type Transaction__968076315 =
   {
     amount : Nat;
     description : Text;
@@ -11,5 +11,5 @@ type Transaction__840799351 =
 actor {
   stable var balanceEntries : [(Principal, Nat)];
   stable var nextTransactionId : Nat;
-  stable var transactionEntries : [(Principal, [Transaction__840799351])]
+  stable var transactionEntries : [(Principal, [Transaction__968076315])]
 };
