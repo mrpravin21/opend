@@ -186,16 +186,16 @@ function TokenWallet() {
 
       {/* Faucet (from Faucet.jsx) */}
       <div className="blue window">
-        <h2>
-          <span role="img" aria-label="tap emoji">
+        <h2 style={{ display: 'none' }}>
+          <span role="img" aria-label="tap emoji" style={{ display: 'none' }}>
             🚰
           </span>
           Faucet
         </h2>
         <label>
-          Get your DANG tokens here! Claim 10,000 DANG tokens{" "}
+          Get your DANG tokens! Claim Free DANG tokens by Taking part in our Quizzes!{" "}
           {isAuthenticated && principal
-            ? `to ${principal.toText().substring(0, 8)}...`
+            ? ``
             : "(Login required)"}
         </label>
         {isAuthenticated && myBalance && (
@@ -204,7 +204,7 @@ function TokenWallet() {
           </p>
         )}
         <p className="trade-buttons">
-          <button id="btn-payout" onClick={handleFaucetClick} disabled={faucetDisabled}>
+          <button id="btn-payout" onClick={handleFaucetClick} disabled={faucetDisabled} style={{ display: 'none' }}>
             {faucetText}
           </button>
         </p>

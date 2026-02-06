@@ -127,44 +127,87 @@ function QuizRewards() {
 
   if (loading) {
     return (
-      <div className="window white">
-        <h2>
-          <span role="img" aria-label="brain emoji">
+      <div className="minter-container">
+        <h3 className="Typography-root makeStyles-title-99 Typography-h3 form-Typography-gutterBottom">
+          <span role="img" aria-label="brain emoji" style={{ marginRight: "10px" }}>
             🧠
           </span>
-          {" "}Quiz Rewards
-        </h2>
-        <p>Loading...</p>
+          Quiz Rewards
+        </h3>
+        <div className="lds-ellipsis" style={{ marginTop: "40px" }}>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="window white">
-      <h2>
-        <span role="img" aria-label="brain emoji">
+    <div className="minter-container">
+      <h3 className="Typography-root makeStyles-title-99 Typography-h3 form-Typography-gutterBottom">
+        <span role="img" aria-label="brain emoji" style={{ marginRight: "10px" }}>
           🧠
         </span>
-        {" "}Quiz Rewards
-      </h2>
+        Quiz Rewards
+      </h3>
 
       {!isAuthenticated ? (
-        <div>
-          <p>Please login to access quiz rewards.</p>
+        <div style={{ 
+          padding: "30px", 
+          textAlign: "center",
+          color: "#777e90"
+        }}>
+          <p style={{ fontSize: "1.1rem", marginBottom: "20px" }}>Please login to access quiz rewards.</p>
+          <p style={{ fontSize: "0.9rem" }}>Earn DANG tokens by completing quizzes and use them to purchase NFTs!</p>
         </div>
       ) : (
         <div>
-          {/* Points Display */}
-          <div style={{ marginBottom: "20px", padding: "15px", border: "1px solid #353945", borderRadius: "4px", backgroundColor: "#1a1a1a" }}>
-            <label style={{ display: "block", marginBottom: "10px", fontWeight: "bold" }}>Your Quiz Points</label>
+          {/* Points Display Card */}
+          <div style={{ 
+            marginBottom: "30px", 
+            padding: "30px", 
+            border: "1px solid #353945", 
+            borderRadius: "8px", 
+            backgroundColor: "#1a1a1a",
+            textAlign: "center"
+          }}>
+            <label style={{ 
+              display: "block", 
+              marginBottom: "15px", 
+              fontWeight: "500",
+              fontSize: "0.9rem",
+              color: "#777e90",
+              textTransform: "uppercase",
+              letterSpacing: "1px"
+            }}>
+              Your Quiz Points
+            </label>
             {loadingPoints ? (
-              <p>Loading points...</p>
+              <div className="lds-ellipsis" style={{ marginTop: "20px", marginBottom: "20px" }}>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+              </div>
             ) : (
-              <div style={{ fontSize: "2rem", fontWeight: "bold", color: "#5f64b5", margin: "10px 0" }}>
-                {points} {points === 1 ? "point" : "points"}
+              <div style={{ 
+                fontSize: "3.5rem", 
+                fontWeight: "bold", 
+                color: "#5f64b5", 
+                margin: "20px 0",
+                textShadow: "0 0 20px rgba(95, 100, 181, 0.3)"
+              }}>
+                {points}
               </div>
             )}
-            <p style={{ fontSize: "0.9rem", color: "#888", marginTop: "10px" }}>
+            <p style={{ 
+              fontSize: "0.95rem", 
+              color: "#777e90", 
+              marginTop: "15px",
+              marginBottom: 0
+            }}>
               Earn points by playing quizzes. 1 point = 1 DANG token.
             </p>
           </div>
@@ -172,67 +215,114 @@ function QuizRewards() {
           {/* Error/Success Messages */}
           {error && (
             <div style={{ 
-              padding: "10px", 
-              backgroundColor: "#2d1b1b", 
+              padding: "15px 20px", 
+              backgroundColor: "rgba(204, 0, 0, 0.1)", 
               color: "#ff6b6b", 
-              borderRadius: "4px", 
-              marginBottom: "15px",
-              border: "1px solid #cc0000"
+              borderRadius: "8px", 
+              marginBottom: "20px",
+              border: "1px solid rgba(204, 0, 0, 0.3)",
+              fontSize: "0.9rem"
             }}>
               {error}
             </div>
           )}
           {success && (
             <div style={{ 
-              padding: "10px", 
-              backgroundColor: "#1b2d1b", 
+              padding: "15px 20px", 
+              backgroundColor: "rgba(0, 170, 0, 0.1)", 
               color: "#51cf66", 
-              borderRadius: "4px", 
-              marginBottom: "15px",
-              border: "1px solid #00aa00"
+              borderRadius: "8px", 
+              marginBottom: "20px",
+              border: "1px solid rgba(0, 170, 0, 0.3)",
+              fontSize: "0.9rem",
+              fontWeight: "500"
             }}>
               {success}
             </div>
           )}
 
-          {/* Actions */}
-          <div className="trade-buttons">
-            <button
-              id="btn-start-quiz"
-              onClick={handleStartQuiz}
+          {/* Action Buttons */}
+          <div style={{ 
+            display: "flex", 
+            gap: "15px", 
+            justifyContent: "center",
+            flexWrap: "wrap",
+            marginBottom: "40px"
+          }}>
+            <div className="Chip-root makeStyles-chipBlue-108 Chip-clickable" style={{ marginTop: 0 }}>
+              <span onClick={handleStartQuiz} className="form-Chip-label" style={{ cursor: "pointer" }}>
+                Start Quiz
+              </span>
+            </div>
+            <div 
+              className={`Chip-root makeStyles-chipBlue-108 ${points === 0 || claiming ? '' : 'Chip-clickable'}`}
+              style={{ 
+                marginTop: 0,
+                opacity: (points === 0 || claiming) ? 0.5 : 1,
+                cursor: (points === 0 || claiming) ? 'not-allowed' : 'pointer'
+              }}
             >
-              Start Quiz
-            </button>
-            <button
-              id="btn-claim-tokens"
-              onClick={handleClaimTokens}
-              disabled={points === 0 || claiming}
+              <span 
+                onClick={points === 0 || claiming ? undefined : handleClaimTokens} 
+                className="form-Chip-label"
+                style={{ cursor: (points === 0 || claiming) ? 'not-allowed' : 'pointer' }}
+              >
+                {claiming ? "Claiming..." : `Claim ${points} Tokens`}
+              </span>
+            </div>
+            <div 
+              className={`Chip-root makeStyles-chipBlue-108 ${loadingPoints ? '' : 'Chip-clickable'}`}
+              style={{ 
+                marginTop: 0,
+                opacity: loadingPoints ? 0.5 : 1,
+                cursor: loadingPoints ? 'not-allowed' : 'pointer'
+              }}
             >
-              {claiming ? "Claiming..." : `Claim ${points} Tokens`}
-            </button>
-            <button
-              id="btn-refresh-points"
-              onClick={fetchPoints}
-              disabled={loadingPoints}
-            >
-              Refresh
-            </button>
+              <span 
+                onClick={loadingPoints ? undefined : fetchPoints} 
+                className="form-Chip-label"
+                style={{ cursor: loadingPoints ? 'not-allowed' : 'pointer' }}
+              >
+                Refresh
+              </span>
+            </div>
           </div>
 
           {/* Info Section */}
           <div style={{ 
-            marginTop: "30px", 
-            padding: "15px", 
+            marginTop: "40px", 
+            padding: "25px", 
             border: "1px solid #353945", 
-            borderRadius: "4px",
+            borderRadius: "8px",
             backgroundColor: "#1a1a1a"
           }}>
-            <h3 style={{ marginTop: 0, marginBottom: "10px" }}>How it works:</h3>
-            <ol style={{ paddingLeft: "20px", margin: 0 }}>
-              <li style={{ marginBottom: "8px" }}>Click "Start Quiz" to open the quiz in a new window</li>
-              <li style={{ marginBottom: "8px" }}>Answer questions correctly to earn points</li>
-              <li style={{ marginBottom: "8px" }}>Return here and click "Claim Tokens" to convert points to DANG tokens</li>
-              <li>Use your DANG tokens to purchase NFTs!</li>
+            <h3 style={{ 
+              marginTop: 0, 
+              marginBottom: "20px",
+              color: "#fcfcfd",
+              fontSize: "1.3rem",
+              fontWeight: "500"
+            }}>
+              How it works:
+            </h3>
+            <ol style={{ 
+              paddingLeft: "25px", 
+              margin: 0,
+              color: "#777e90",
+              lineHeight: "1.8"
+            }}>
+              <li style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
+                Click <span style={{ color: "#5f64b5", fontWeight: "500" }}>"Start Quiz"</span> to open the quiz in a new window
+              </li>
+              <li style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
+                Answer questions correctly to earn points
+              </li>
+              <li style={{ marginBottom: "12px", fontSize: "0.95rem" }}>
+                Return here and click <span style={{ color: "#5f64b5", fontWeight: "500" }}>"Claim Tokens"</span> to convert points to DANG tokens
+              </li>
+              <li style={{ fontSize: "0.95rem" }}>
+                Use your DANG tokens to purchase NFTs!
+              </li>
             </ol>
           </div>
         </div>

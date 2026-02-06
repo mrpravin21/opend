@@ -1336,11 +1336,50 @@ label[data-shrink="false"]
   background: #a5a4ce;
   padding: 0;
   margin: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  min-height: calc(100vh + 230px); /* Account for header (80px) + footer area (150px) */
+  position: relative;
 }
 
-/* If you want background to cover visible area */
-.wallet-scope {
-  min-height: 100vh;
+/* Extend purple background upward to cover gap, but keep header visible */
+.wallet-scope::before {
+  content: "";
+  position: absolute;
+  top: -80px;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: #a5a4ce;
+  z-index: -1;
+}
+
+/* Extend purple background downward to cover gap above footer */
+.wallet-scope::after {
+  content: "";
+  position: absolute;
+  bottom: -150px;
+  left: 0;
+  right: 0;
+  height: 150px;
+  background: #a5a4ce;
+  z-index: -1;
+}
+
+/* Ensure wallet content starts right after header with no gap */
+.wallet-scope #screen {
+  margin-top: 0;
+  padding-top: 0;
+  position: relative;
+  z-index: 1;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+/* Remove any default spacing that might create a gap */
+.wallet-scope header {
+  margin-top: 0;
+  padding-top: 0;
 }
 
 /* Localized element rules */

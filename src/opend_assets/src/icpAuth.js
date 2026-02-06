@@ -246,7 +246,7 @@ export async function makeAuthedActors(identity) {
     identity,
     host: HOST,
   });
-  
+
   // Disable verification for local development
   if (isLocal) {
     try {
@@ -263,7 +263,7 @@ export async function makeAuthedActors(identity) {
   
   // Fetch root key for local development
   if (process.env.NODE_ENV !== "production" || isLocal) {
-    await agent.fetchRootKey();
+  await agent.fetchRootKey();
   }
 
   // Create actors using the agent we created (this preserves the identity)
