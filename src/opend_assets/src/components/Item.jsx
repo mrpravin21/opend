@@ -106,8 +106,11 @@ function Item(props) {
 
         const price = await opendActor.getListedNFTPrice(nftIdForOpend);
         setPriceLabel(<PriceLabel sellPrice={price.toString()} />);
+      } else {
+        // Minter preview or other: set owner from NFT
+        setOwner(owner.toText());
       }
-      
+
       setLoaderHidden(true);
     } catch (error) {
       console.error("Error loading NFT:", error);
@@ -260,42 +263,66 @@ function Item(props) {
       style={{ display: shouldDisplay ? "inline" : "none" }}
       className="disGrid-item"
     >
-      <div className="disPaper-root disCard-root makeStyles-root-17 disPaper-elevation1 disPaper-rounded">
-        {image ? (
-          <img
-            className="disCardMedia-root makeStyles-image-19 disCardMedia-media disCardMedia-img"
-            src={image}
-            style={blur}
-            alt={name || "NFT"}
-          />
-        ) : (
-          <div className="disCardMedia-root makeStyles-image-19 disCardMedia-media" style={{ 
-            minHeight: "200px", 
-            display: "flex", 
-            alignItems: "center", 
-            justifyContent: "center",
-            backgroundColor: "#f0f0f0"
-          }}>
-            {loaderHidden ? "Image not available" : "Loading..."}
+      <div className="disPaper-root disCard-root makeStyles-root-17 disPaper-elevation1 disPaper-rounded item-card">
+        <div className="item-image-wrap">
+          {image ? (
+            <img
+              className="disCardMedia-root makeStyles-image-19 disCardMedia-media disCardMedia-img"
+              src={image}
+              style={blur}
+              alt={name || "NFT"}
+            />
+          ) : (
+            <div className="disCardMedia-root makeStyles-image-19 disCardMedia-media" style={{ 
+              minHeight: "200px", 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center",
+              backgroundColor: "#f0f0f0"
+            }}>
+              {loaderHidden ? "Image not available" : "Loading..."}
+            </div>
+          )}
+          {button && !priceInput && (
+            <div className="item-action-overlay">
+              {button}
+            </div>
+          )}
+        </div>
+        {!loaderHidden && (
+          <div className="item-loader-wrap">
+            <div className="lds-ellipsis">
+              <div></div>
+              <div></div>
+              <div></div>
+              <div></div>
+            </div>
           </div>
         )}
-        <div className="lds-ellipsis" hidden={loaderHidden}>
-          <div></div>
-          <div></div>
-          <div></div>
-          <div></div>
-        </div>
         <div className="disCardContent-root">
           {priceLabel}
           <h2 className="disTypography-root makeStyles-bodyText-24 disTypography-h5 disTypography-gutterBottom">
             {name}
             <span className="purple-text"> {sellStatus}</span>
           </h2>
-          <p className="disTypography-root makeStyles-bodyText-24 disTypography-body2 disTypography-colorTextSecondary">
-            Owner: {owner}
-          </p>
-          {priceInput}
-          {button}
+          <div className="item-owner">
+            <span className="item-owner-label">Owner:</span>
+            <span className="item-owner-value">
+              {owner == null || owner === "" ? (
+                loaderHidden ? "—" : "Loading..."
+              ) : isAuthenticated && principal && owner === principal.toText() ? (
+                <span className="item-owner-you">You</span>
+              ) : (
+                owner
+              )}
+            </span>
+          </div>
+          {priceInput && (
+            <div className="item-actions">
+              {priceInput}
+              {button}
+            </div>
+          )}
         </div>
       </div>
     </div>

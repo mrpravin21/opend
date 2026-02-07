@@ -11,7 +11,7 @@ persistent actor Token {
 
   private transient let owner : Principal = Principal.fromText("hi2ea-dyiq5-v36f2-a7hiy-r7uqb-jbq5d-tn5a4-2rqpw-tuxhh-sdr7v-lqe");
   private transient let totalSupply : Nat = 1000000000;
-  private transient let symbol : Text = "DANG";
+  private transient let symbol : Text = "DANGs";
 
   private type Transaction = {
     id: Nat;

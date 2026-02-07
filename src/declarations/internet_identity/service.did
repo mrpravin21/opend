@@ -72,6 +72,7 @@ type AuthnMethodPurpose = variant { Recovery; Authentication };
 type AuthnMethodRegisterError = variant {
   RegistrationModeOff;
   RegistrationAlreadyInProgress;
+  NotSelfAuthenticating : principal;
   InvalidMetadata : text;
 };
 type AuthnMethodRegistrationInfo = record {
@@ -122,6 +123,11 @@ type CaptchaConfig = record {
   };
 };
 type CaptchaResult = ChallengeResult;
+type CertifiedAttribute = record { key : text; signature : blob; value : blob };
+type CertifiedAttributes = record {
+  expires_at_timestamp_ns : Timestamp;
+  certified_attributes : vec CertifiedAttribute;
+};
 type Challenge = record { png_base64 : text; challenge_key : ChallengeKey };
 type ChallengeKey = text;
 type ChallengeResult = record { key : ChallengeKey; chars : text };
@@ -184,9 +190,28 @@ type DeviceWithUsage = record {
 };
 type DummyAuthConfig = record { prompt_for_index : bool };
 type FrontendHostname = text;
+type GetAccountError = variant {
+  NoSuchOrigin : record { anchor_number : UserNumber };
+  NoSuchAccount : record {
+    origin : FrontendHostname;
+    anchor_number : UserNumber;
+  };
+};
 type GetAccountsError = variant {
   InternalCanisterError : text;
   Unauthorized : principal;
+};
+type GetAttributesError = variant {
+  AuthorizationError : principal;
+  ValidationError : record { problems : vec text };
+  GetAccountError : GetAccountError;
+};
+type GetAttributesRequest = record {
+  origin : FrontendHostname;
+  account_number : opt AccountNumber;
+  attributes : vec record { text; blob };
+  issued_at_timestamp_ns : Timestamp;
+  identity_number : IdentityNumber;
 };
 type GetDefaultAccountError = variant {
   NoSuchOrigin : record { anchor_number : UserNumber };
@@ -375,6 +400,21 @@ type PrepareAccountDelegation = record {
   user_key : UserKey;
   expiration : Timestamp;
 };
+type PrepareAttributeError = variant {
+  AuthorizationError : principal;
+  ValidationError : record { problems : vec text };
+  GetAccountError : GetAccountError;
+};
+type PrepareAttributeRequest = record {
+  origin : FrontendHostname;
+  attribute_keys : vec text;
+  account_number : opt AccountNumber;
+  identity_number : IdentityNumber;
+};
+type PrepareAttributeResponse = record {
+  attributes : vec record { text; blob };
+  issued_at_timestamp_ns : Timestamp;
+};
 type PrepareIdAliasError = variant {
   InternalCanisterError : text;
   Unauthorized : principal;
@@ -534,6 +574,9 @@ service : {
     ) query;
   get_anchor_credentials : (UserNumber) -> (AnchorCredentials) query;
   get_anchor_info : (UserNumber) -> (IdentityAnchorInfo);
+  get_attributes : (GetAttributesRequest) -> (
+      variant { Ok : CertifiedAttributes; Err : GetAttributesError },
+    ) query;
   get_default_account : (UserNumber, FrontendHostname) -> (
       variant { Ok : AccountInfo; Err : GetDefaultAccountError },
     ) query;
@@ -596,6 +639,9 @@ service : {
       opt nat64,
     ) -> (
       variant { Ok : PrepareAccountDelegation; Err : AccountDelegationError },
+    );
+  prepare_attributes : (PrepareAttributeRequest) -> (
+      variant { Ok : PrepareAttributeResponse; Err : PrepareAttributeError },
     );
   prepare_delegation : (
       UserNumber,

@@ -20,7 +20,7 @@ function Gallery(props) {
   }, [props.ids]);
 
   return (
-    <div className="gallery-view">
+    <div className="gallery-view" data-role={props.role}>
       <h3 className="makeStyles-title-99 Typography-h3">{props.title}</h3>
       <div className="disGrid-root disGrid-container disGrid-spacing-xs-2">
         <div className="disGrid-root disGrid-item disGrid-grid-xs-12">

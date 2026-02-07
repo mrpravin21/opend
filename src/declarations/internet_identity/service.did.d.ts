@@ -76,6 +76,7 @@ export type AuthnMethodPurpose = { 'Recovery' : null } |
   { 'Authentication' : null };
 export type AuthnMethodRegisterError = { 'RegistrationModeOff' : null } |
   { 'RegistrationAlreadyInProgress' : null } |
+  { 'NotSelfAuthenticating' : Principal } |
   { 'InvalidMetadata' : string };
 export interface AuthnMethodRegistrationInfo {
   'expiration' : Timestamp,
@@ -125,6 +126,15 @@ export interface CaptchaConfig {
     { 'Static' : { 'CaptchaDisabled' : null } | { 'CaptchaEnabled' : null } },
 }
 export type CaptchaResult = ChallengeResult;
+export interface CertifiedAttribute {
+  'key' : string,
+  'signature' : Uint8Array | number[],
+  'value' : Uint8Array | number[],
+}
+export interface CertifiedAttributes {
+  'expires_at_timestamp_ns' : Timestamp,
+  'certified_attributes' : Array<CertifiedAttribute>,
+}
 export interface Challenge {
   'png_base64' : string,
   'challenge_key' : ChallengeKey,
@@ -185,8 +195,27 @@ export interface DeviceWithUsage {
 }
 export interface DummyAuthConfig { 'prompt_for_index' : boolean }
 export type FrontendHostname = string;
+export type GetAccountError = {
+    'NoSuchOrigin' : { 'anchor_number' : UserNumber }
+  } |
+  {
+    'NoSuchAccount' : {
+      'origin' : FrontendHostname,
+      'anchor_number' : UserNumber,
+    }
+  };
 export type GetAccountsError = { 'InternalCanisterError' : string } |
   { 'Unauthorized' : Principal };
+export type GetAttributesError = { 'AuthorizationError' : Principal } |
+  { 'ValidationError' : { 'problems' : Array<string> } } |
+  { 'GetAccountError' : GetAccountError };
+export interface GetAttributesRequest {
+  'origin' : FrontendHostname,
+  'account_number' : [] | [AccountNumber],
+  'attributes' : Array<[string, Uint8Array | number[]]>,
+  'issued_at_timestamp_ns' : Timestamp,
+  'identity_number' : IdentityNumber,
+}
 export type GetDefaultAccountError = {
     'NoSuchOrigin' : { 'anchor_number' : UserNumber }
   } |
@@ -374,6 +403,19 @@ export interface PrepareAccountDelegation {
   'user_key' : UserKey,
   'expiration' : Timestamp,
 }
+export type PrepareAttributeError = { 'AuthorizationError' : Principal } |
+  { 'ValidationError' : { 'problems' : Array<string> } } |
+  { 'GetAccountError' : GetAccountError };
+export interface PrepareAttributeRequest {
+  'origin' : FrontendHostname,
+  'attribute_keys' : Array<string>,
+  'account_number' : [] | [AccountNumber],
+  'identity_number' : IdentityNumber,
+}
+export interface PrepareAttributeResponse {
+  'attributes' : Array<[string, Uint8Array | number[]]>,
+  'issued_at_timestamp_ns' : Timestamp,
+}
 export type PrepareIdAliasError = { 'InternalCanisterError' : string } |
   { 'Unauthorized' : Principal };
 export interface PrepareIdAliasRequest {
@@ -545,6 +587,11 @@ export interface _SERVICE {
   >,
   'get_anchor_credentials' : ActorMethod<[UserNumber], AnchorCredentials>,
   'get_anchor_info' : ActorMethod<[UserNumber], IdentityAnchorInfo>,
+  'get_attributes' : ActorMethod<
+    [GetAttributesRequest],
+    { 'Ok' : CertifiedAttributes } |
+      { 'Err' : GetAttributesError }
+  >,
   'get_default_account' : ActorMethod<
     [UserNumber, FrontendHostname],
     { 'Ok' : AccountInfo } |
@@ -640,6 +687,11 @@ export interface _SERVICE {
     ],
     { 'Ok' : PrepareAccountDelegation } |
       { 'Err' : AccountDelegationError }
+  >,
+  'prepare_attributes' : ActorMethod<
+    [PrepareAttributeRequest],
+    { 'Ok' : PrepareAttributeResponse } |
+      { 'Err' : PrepareAttributeError }
   >,
   'prepare_delegation' : ActorMethod<
     [UserNumber, FrontendHostname, SessionKey, [] | [bigint]],

@@ -12,6 +12,78 @@ const QUIZ_API_URL = typeof process !== 'undefined' && process.env?.QUIZ_API_URL
   ? process.env.QUIZ_API_URL 
   : "http://localhost:3000";
 
+function OriginalityLayerCharts({ layers, currentStage, isChecking, finalApproved, finalMessage, similarNft, originalityScore, similarityScore }) {
+  const layerList = [1, 2, 3].map((i) => {
+    const layer = layers?.[`layer${i}`];
+    if (!layer) return null;
+    const isPassed = layer.passed === true;
+    const isFailed = layer.passed === false;
+    const isPending = layer.passed === null;
+    const isCurrent = currentStage === i && isChecking;
+    const score = layer.scorePercent != null ? layer.scorePercent : 0;
+    return { i, layer, isPassed, isFailed, isPending, isCurrent, score };
+  }).filter(Boolean);
+
+  return (
+    <div className="originality-charts-card">
+      <div className="originality-charts-header">
+        <span className="originality-charts-title">Originality verification</span>
+        {finalApproved !== undefined && finalApproved !== null && (
+          <span className={`originality-charts-badge ${finalApproved ? 'passed' : 'failed'}`}>
+            {finalApproved ? '✓ Passed' : '✕ Failed'}
+          </span>
+        )}
+      </div>
+      {finalMessage && finalApproved !== undefined && (
+        <p className="originality-charts-summary">{finalMessage}</p>
+      )}
+      {finalApproved === true && (originalityScore != null || similarityScore != null) && (
+        <div className="originality-scores-row">
+          <span className="originality-score-badge originality">Originality: {originalityScore ?? '—'}%</span>
+          <span className="originality-score-badge similarity">Similarity: {similarityScore ?? '0'}%</span>
+        </div>
+      )}
+      {finalApproved === false && similarNft && (
+        <div className="originality-existing-nft">
+          <strong>Similar NFT:</strong> "{similarNft.name || 'Unknown'}"
+          {similarNft.nft_principal_id && (
+            <span> (ID: {similarNft.nft_principal_id.substring(0, 20)}...)</span>
+          )}
+        </div>
+      )}
+      {finalApproved === false && (
+        <div className="originality-blocked-badge">⛔ Minting blocked</div>
+      )}
+      <div className="originality-charts-bars">
+        {layerList.map(({ i, layer, isPassed, isFailed, isPending, isCurrent, score }) => (
+          <div
+            key={i}
+            className={`originality-chart-row ${isPassed ? 'passed' : ''} ${isFailed ? 'failed' : ''} ${isPending ? 'pending' : ''} ${isCurrent ? 'checking' : ''}`}
+          >
+            <div className="originality-chart-label">
+              <span className="originality-chart-lnum">L{i}</span>
+              <span className="originality-chart-name">{layer.name}</span>
+            </div>
+            <div className="originality-chart-bar-wrap">
+              <div
+                className="originality-chart-bar-fill"
+                style={{
+                  width: isCurrent ? '40%' : (isPending ? '0%' : `${Math.min(100, Math.max(0, score))}%`),
+                  backgroundColor: isFailed ? '#dc3545' : isPassed ? '#28a745' : isCurrent ? 'var(--purple)' : '#555',
+                }}
+              />
+              <div className="originality-chart-bar-bg" />
+            </div>
+            <div className="originality-chart-value">
+              {isPending && !isCurrent ? '—' : isCurrent ? '...' : `${Number(score).toFixed(1)}%`}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Minter() {
   const { isAuthenticated, principal } = useContext(AuthContext);
   const { refreshNFTs } = useContext(NFTRefreshContext);
@@ -22,6 +94,7 @@ function Minter() {
   const [cyclesWarning, setCyclesWarning] = useState("");
   const [originalityCheckResult, setOriginalityCheckResult] = useState(null);
   const [originalityChecking, setOriginalityChecking] = useState(false);
+  const [originalityLiveLayers, setOriginalityLiveLayers] = useState(null); // Progressive layer state during check
 
   async function checkCycles() {
     try {
@@ -57,41 +130,57 @@ function Minter() {
     }
   }
 
-  // Check originality of image before minting (optional, non-blocking)
+  // Check originality in 3 stages for live UI updates
   async function checkOriginality(imageFile, name) {
-    if (!isAuthenticated || !principal) {
-      return null;
-    }
+    if (!isAuthenticated || !principal) return null;
+
+    const appendForm = (stage) => {
+      const fd = new FormData();
+      fd.append('image', imageFile);
+      fd.append('principalId', principal.toText());
+      fd.append('name', name);
+      fd.append('stage', String(stage));
+      return fd;
+    };
+
+    const fetchStage = async (stage) => {
+      const res = await fetch(`${QUIZ_API_URL}/api/nft/check-originality`, {
+        method: 'POST',
+        body: appendForm(stage),
+      });
+      if (!res.ok) throw new Error(`Stage ${stage} failed: ${res.statusText}`);
+      return res.json();
+    };
 
     try {
       setOriginalityChecking(true);
       setOriginalityCheckResult(null);
+      setOriginalityLiveLayers(null);
 
-      const formData = new FormData();
-      formData.append('image', imageFile);
-      formData.append('principalId', principal.toText());
-      formData.append('name', name);
-
-      console.log('Calling originality check API:', `${QUIZ_API_URL}/api/nft/check-originality`);
-      
-      const response = await fetch(`${QUIZ_API_URL}/api/nft/check-originality`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Originality check API error:', response.status, errorText);
-        throw new Error(`Originality check failed: ${response.statusText}`);
+      // Stage 1
+      setOriginalityLiveLayers({ stage: 1, layers: null, checking: true });
+      const r1 = await fetchStage(1);
+      setOriginalityLiveLayers({ stage: 1, result: r1, layers: r1.layers, checking: false });
+      if (r1.approved === false) {
+        setOriginalityLiveLayers(null);
+        setOriginalityCheckResult(r1);
+        return r1;
       }
 
-      const result = await response.json();
-      console.log('Originality check result:', result);
-      setOriginalityCheckResult(result);
-      return result;
+      // Stage 2
+      setOriginalityLiveLayers({ stage: 2, result: r1, layers: r1.layers, checking: true });
+      const r2 = await fetchStage(2);
+      setOriginalityLiveLayers({ stage: 2, result: r2, layers: r2.layers, checking: false });
+
+      // Stage 3 (final)
+      setOriginalityLiveLayers({ stage: 3, result: r2, layers: r2.layers, checking: true });
+      const r3 = await fetchStage(3);
+      setOriginalityLiveLayers(null);
+      setOriginalityCheckResult(r3);
+      return r3;
     } catch (error) {
       console.error("Error checking originality:", error);
-      // Don't block minting if originality check fails - just log it
+      setOriginalityLiveLayers(null);
       setOriginalityCheckResult({
         approved: null,
         reason: 'error',
@@ -125,7 +214,8 @@ function Minter() {
         imageData: imageBase64,
         imageHash: checkResult?.imageHash || null,
         phash: checkResult?.phash || null,
-        embedding: checkResult?.embedding || null, // Pass embedding from originality check
+        embedding: checkResult?.embedding || null,
+        embedding_model: checkResult?.embedding_model || 'simple',
         originalityScore: checkResult?.originalityScore ? parseFloat(checkResult.originalityScore) : null,
         similarityScore: checkResult?.similarityScore ? parseFloat(checkResult.similarityScore) : null,
         mostSimilarNftPrincipalId: checkResult?.mostSimilarNft?.nft_principal_id || null,
@@ -200,10 +290,10 @@ function Minter() {
               ? ` Originality: ${originalityResult.originalityScore || 'N/A'}%, Similarity: ${originalityResult.similarityScore || 'N/A'}%.`
               : '';
 
-          setErrorMessage(
-            `Cannot mint NFT: ${originalityResult.message}.${existingNftInfo}${originalityInfo} ` +
-            `Minting has been blocked to prevent duplicates.`
-          );
+          //setErrorMessage(
+            //`Cannot mint NFT: ${originalityResult.message}.${existingNftInfo}${originalityInfo} ` +
+           // `Minting has been blocked to prevent duplicates.`
+          //);
           return; // Stop minting process
         }
         
@@ -275,151 +365,89 @@ function Minter() {
 
   if (nftPrincipal == "") {
     return (
-      <div className="minter-container">
-        <div hidden={loaderHidden} className="lds-ellipsis">
-          <div></div>
-          <div></div>
-          <div></div>
-          <div></div>
-        </div>
-        <h3 className="makeStyles-title-99 Typography-h3 form-Typography-gutterBottom">
-          Create NFT
-        </h3>
-        {!isAuthenticated && (
-          <div style={{ color: "red", marginBottom: "10px" }}>
-            Please login to mint NFTs
-          </div>
-        )}
-        {cyclesWarning && (
-          <div style={{ 
-            color: cyclesWarning.includes("⚠️") ? "orange" : "blue", 
-            marginBottom: "10px",
-            padding: "10px",
-            backgroundColor: cyclesWarning.includes("⚠️") ? "#fff3cd" : "#d1ecf1",
-            borderRadius: "4px",
-            fontSize: "14px"
-          }}>
-            {cyclesWarning}
-          </div>
-        )}
-        {originalityChecking && (
-          <div style={{ 
-            color: "blue", 
-            marginBottom: "10px",
-            padding: "10px",
-            backgroundColor: "#d1ecf1",
-            borderRadius: "4px",
-            fontSize: "14px"
-          }}>
-            🔍 Checking image originality...
-          </div>
-        )}
-        {originalityCheckResult && originalityCheckResult.approved === false && (
-          <div style={{ 
-            color: "red", 
-            marginBottom: "10px",
-            padding: "10px",
-            backgroundColor: "#f8d7da",
-            borderRadius: "4px",
-            fontSize: "14px",
-            border: "1px solid #dc3545"
-          }}>
-            ❌ Duplicate Detected: {originalityCheckResult.message}
-            {originalityCheckResult.existingNft && (
-              <div style={{ marginTop: "8px", fontSize: "12px", color: "#721c24" }}>
-                <strong>Existing NFT:</strong> "{originalityCheckResult.existingNft.name || 'Unknown'}"
-                {originalityCheckResult.existingNft.nft_principal_id && (
-                  <span> (ID: {originalityCheckResult.existingNft.nft_principal_id.substring(0, 20)}...)</span>
-                )}
+      <div className="minter-page">
+        <div className="minter-container">
+          {!loaderHidden && (
+            <div className="minter-loader-wrap">
+              <div className="lds-ellipsis">
+                <div></div><div></div><div></div><div></div>
               </div>
-            )}
-            {originalityCheckResult.originalityScore && (
-              <div style={{ marginTop: "5px", fontSize: "12px", color: "#721c24" }}>
-                Originality Score: {originalityCheckResult.originalityScore}%
-              </div>
-            )}
-            <div style={{ marginTop: "8px", fontSize: "12px", fontWeight: "bold", color: "#721c24" }}>
-              ⛔ Minting has been blocked to prevent duplicates.
             </div>
-          </div>
-        )}
-        {originalityCheckResult && originalityCheckResult.approved === true && (
-          <div style={{ 
-            color: "green", 
-            marginBottom: "10px",
-            padding: "10px",
-            backgroundColor: "#d4edda",
-            borderRadius: "4px",
-            fontSize: "14px"
-          }}>
-            ✅ Image passed originality check (Score: {originalityCheckResult.originalityScore}%)
-          </div>
-        )}
-        {originalityCheckResult && originalityCheckResult.reason === 'error' && (
-          <div style={{ 
-            color: "gray", 
-            marginBottom: "10px",
-            padding: "10px",
-            backgroundColor: "#e9ecef",
-            borderRadius: "4px",
-            fontSize: "14px"
-          }}>
-            ℹ️ {originalityCheckResult.message}
-          </div>
-        )}
-        {errorMessage && (
-          <div style={{ 
-            color: "red", 
-            marginBottom: "10px",
-            padding: "10px",
-            backgroundColor: "#f8d7da",
-            borderRadius: "4px"
-          }}>
-            {errorMessage}
-          </div>
-        )}
-        <h6 className="form-Typography-root makeStyles-subhead-102 form-Typography-subtitle1 form-Typography-gutterBottom">
-          Upload Image
-        </h6>
-        <form className="makeStyles-form-109" noValidate="" autoComplete="off">
-          <div className="upload-container">
-            <input
-              {...register("image", { required: true })}
-              className="upload"
-              type="file"
-              accept="image/x-png,image/jpeg,image/gif,image/svg+xml,image/webp"
+          )}
+          <p className="minter-label">Create NFT</p>
+          <h2 className="minter-title">Mint Your NFT</h2>
+          <p className="minter-desc">Upload an image and verify originality before minting</p>
+
+          {!isAuthenticated && (
+            <div className="minter-alert minter-alert-error">Please login to mint NFTs</div>
+          )}
+          {cyclesWarning && (
+            <div className={`minter-alert ${cyclesWarning.includes("⚠️") ? "minter-alert-warning" : "minter-alert-info"}`}>
+              {cyclesWarning}
+            </div>
+          )}
+          {(originalityChecking || originalityLiveLayers) && (
+            <div className="originality-checking-banner">
+              <div className="originality-checking-pulse" />
+              <span>
+                {originalityLiveLayers
+                  ? `Verifying Layer ${originalityLiveLayers.stage}...`
+                  : "Checking image originality..."}
+              </span>
+            </div>
+          )}
+          {(originalityLiveLayers?.layers || originalityCheckResult?.layers) && (
+            <OriginalityLayerCharts
+              layers={originalityLiveLayers?.layers || originalityCheckResult?.layers}
+              currentStage={originalityLiveLayers?.stage}
+              isChecking={!!originalityLiveLayers?.checking}
+              finalApproved={originalityCheckResult?.approved}
+              finalMessage={originalityCheckResult?.message}
+              similarNft={originalityCheckResult?.existingNft || originalityCheckResult?.mostSimilarNft}
+              originalityScore={originalityCheckResult?.originalityScore}
+              similarityScore={originalityCheckResult?.similarityScore}
             />
-          </div>
-          <h6 className="form-Typography-root makeStyles-subhead-102 form-Typography-subtitle1 form-Typography-gutterBottom">
-            Collection Name
-          </h6>
-          <div className="form-FormControl-root form-TextField-root form-FormControl-marginNormal form-FormControl-fullWidth">
-            <div className="form-InputBase-root form-OutlinedInput-root form-InputBase-fullWidth form-InputBase-formControl">
+          )}
+          {originalityCheckResult && originalityCheckResult.reason === "error" && (
+            <div className="minter-alert minter-alert-info">ℹ️ {originalityCheckResult.message}</div>
+          )}
+          {errorMessage && (
+            <div className="minter-alert minter-alert-error">{errorMessage}</div>
+          )}
+
+          <form className="minter-form" noValidate autoComplete="off">
+            <label className="minter-field-label">Upload Image</label>
+            <div className="minter-upload-wrap">
               <input
-                {...register("name", { required: true })}
-                placeholder="e.g. CryptoDunks"
-                type="text"
-                className="form-InputBase-input form-OutlinedInput-input"
+                {...register("image", { required: true })}
+                className="minter-upload"
+                type="file"
+                accept="image/x-png,image/jpeg,image/gif,image/svg+xml,image/webp"
               />
-              <fieldset className="PrivateNotchedOutline-root-60 form-OutlinedInput-notchedOutline"></fieldset>
             </div>
-          </div>
-          <div className="form-ButtonBase-root form-Chip-root makeStyles-chipBlue-108 form-Chip-clickable">
-            <span onClick={handleSubmit(onSubmit)} className="form-Chip-label">
+            <label className="minter-field-label">Collection Name</label>
+            <input
+              {...register("name", { required: true })}
+              className="minter-input"
+              placeholder="e.g. CryptoDunks"
+              type="text"
+            />
+            <button type="button" className="minter-btn" onClick={handleSubmit(onSubmit)}>
               Mint NFT
-            </span>
-          </div>
-        </form>
+            </button>
+          </form>
+        </div>
       </div>
     );
   } else {
     return (
-      <div className="minter-container">
-        <h3 className="Typography-root makeStyles-title-99 Typography-h3 form-Typography-gutterBottom">
-          Minted!
-        </h3>
-        <div className="horizontal-center">
-          <Item id={nftPrincipal.toText()} />
+      <div className="minter-page">
+        <div className="minter-container minter-success">
+          <p className="minter-label">Success</p>
+          <h2 className="minter-title">NFT Minted!</h2>
+          <div className="minter-minted-preview">
+            <Item id={nftPrincipal.toText()} />
+          </div>
         </div>
       </div>
     );

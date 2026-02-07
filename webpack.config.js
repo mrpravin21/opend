@@ -48,9 +48,8 @@ module.exports = {
   target: "web",
   mode: isDevelopment ? "development" : "production",
   entry: {
-    // The frontend.entrypoint points to the HTML file for this build, so we need
-    // to replace the extension to `.js`.
     index: path.join(__dirname, asset_entry).replace(/\.html$/, ".jsx"),
+    "ii-auth": path.join(__dirname, "src", frontendDirectory, "src", "ii-auth.js"),
   },
   devtool: isDevelopment ? "source-map" : false,
   optimization: {
@@ -68,7 +67,7 @@ module.exports = {
     },
   },
   output: {
-    filename: "index.js",
+    filename: "[name].js",
     path: path.join(__dirname, "dist", frontendDirectory),
   },
 
@@ -88,12 +87,24 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       template: path.join(__dirname, asset_entry),
+      filename: "index.html",
+      chunks: ["index"],
       cache: false,
     }),
     // Copy assets to dist so they're available for both webpack dev server and dfx deployment
     // dfx.json now only sources dist/opend_assets/ to avoid duplicates
+    new HtmlWebpackPlugin({
+      template: path.join(__dirname, "src", frontendDirectory, "src", "ii-auth.html"),
+      filename: "ii-auth.html",
+      chunks: ["ii-auth"],
+      cache: false,
+    }),
     new CopyPlugin({
       patterns: [
+        {
+          from: path.join(__dirname, "src", frontendDirectory, "src", "ii-redirect.html"),
+          to: path.join(__dirname, "dist", frontendDirectory, "ii-redirect.html"),
+        },
         {
           from: path.join(__dirname, "src", frontendDirectory, "assets"),
           to: path.join(__dirname, "dist", frontendDirectory, "assets"),

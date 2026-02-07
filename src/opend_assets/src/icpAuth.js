@@ -13,6 +13,31 @@ import {
 } from "../../declarations/token";
 
 const HOST = "http://127.0.0.1:8000";
+const APP_SCHEME = "opend";
+
+function isMobileAuth() {
+  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mobile") === "1";
+}
+
+function createMobileRedirectStorage() {
+  const store = {};
+  return {
+    get: async (k) => store[k] ?? null,
+    set: async (k, v) => {
+      store[k] = v;
+      if (k === "delegation" && store["identity"]) {
+        try {
+          const data = JSON.stringify({ key: store["identity"], delegation: v });
+          const encoded = btoa(unescape(encodeURIComponent(data)));
+          window.location.replace(APP_SCHEME + "://auth#" + encoded);
+        } catch (e) {
+          console.error("Mobile auth redirect failed", e);
+        }
+      }
+    },
+    remove: async (k) => { delete store[k]; },
+  };
+}
 
 // Internet Identity URL configuration
 // IMPORTANT: For local development, you MUST deploy Internet Identity locally
@@ -25,24 +50,20 @@ export function getIdentityProviderUrl() {
                   window.location.port === "8000";
   
   if (isLocal) {
-    // Check if canister ID is set via environment variable (from webpack)
-    // Webpack automatically reads from .dfx/local/canister_ids.json
     const localIICanisterId = process.env.INTERNET_IDENTITY_CANISTER_ID;
     const canisterId = (localIICanisterId && localIICanisterId !== "undefined") 
       ? localIICanisterId 
-      : "uxrrr-q7777-77774-qaaaq-cai"; // Fallback to deployed canister ID
-    
-    // Use the dfx port (8000) for Internet Identity
-    // This is because Internet Identity is deployed on dfx's local replica
+      : "uxrrr-q7777-77774-qaaaq-cai";
     return `http://localhost:8000/?canisterId=${canisterId}`;
   }
-  
-  // Production: use the official Internet Identity service
   return "https://identity.ic0.app";
 }
 
 export async function getAuthClient() {
-  return await AuthClient.create();
+  const opts = isMobileAuth()
+    ? { storage: createMobileRedirectStorage(), keyType: "Ed25519", idleOptions: { disableIdle: true } }
+    : {};
+  return await AuthClient.create(opts);
 }
 
 // Session timeout: 24 hours in milliseconds
@@ -88,7 +109,7 @@ function clearLoginTimestamp() {
  * - Authentication is detected on page load via checkAuth() in index.jsx
  */
 export async function login() {
-  const authClient = await AuthClient.create();
+  const authClient = await getAuthClient();
   const identityProviderUrl = getIdentityProviderUrl();
   
   // Check if already authenticated
@@ -122,7 +143,7 @@ export async function login() {
  * Logout from Internet Identity
  */
 export async function logout() {
-  const authClient = await AuthClient.create();
+  const authClient = await getAuthClient();
   await authClient.logout();
   clearLoginTimestamp(); // Clear login timestamp on logout
 }
@@ -132,7 +153,7 @@ export async function logout() {
  */
 export async function checkSessionTimeout() {
   if (isSessionExpired()) {
-    const authClient = await AuthClient.create();
+    const authClient = await getAuthClient();
     if (await authClient.isAuthenticated()) {
       await authClient.logout();
       clearLoginTimestamp();
@@ -151,7 +172,7 @@ export async function checkAuth() {
     // Check if session has expired
     if (isSessionExpired()) {
       // Session expired, logout if authenticated
-      const authClient = await AuthClient.create();
+      const authClient = await getAuthClient();
       if (await authClient.isAuthenticated()) {
         await authClient.logout();
         clearLoginTimestamp();
@@ -159,7 +180,7 @@ export async function checkAuth() {
       return null;
     }
     
-    const authClient = await AuthClient.create();
+    const authClient = await getAuthClient();
     const isAuthenticated = await authClient.isAuthenticated();
     
     if (isAuthenticated) {
@@ -197,7 +218,6 @@ export async function makeAgent(identity) {
     host: HOST,
   });
 
-  // Disable verification for local development
   const isLocal = HOST.includes("localhost") || HOST.includes("127.0.0.1");
   if (isLocal) {
     try {
@@ -241,7 +261,6 @@ export async function makeAuthedActors(identity) {
 
   const isLocal = HOST.includes("localhost") || HOST.includes("127.0.0.1");
   
-  // Create agent with the authenticated identity
   const agent = new HttpAgent({
     identity,
     host: HOST,
